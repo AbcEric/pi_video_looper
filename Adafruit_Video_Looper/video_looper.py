@@ -359,11 +359,12 @@ class VideoLooper:
         while self._running:
             # Load and play a new movie if nothing is playing.
             if not self._player.is_playing() and not self._playbackStopped:
-                if movie is not None: #just to avoid errors
+                if movie is not None:       # just to avoid errors
 
                     if movie.playcount >= movie.repeats:
                         movie.clear_playcount()
                         movie = playlist.get_next(self._is_random)
+
                     elif self._player.can_loop_count() and movie.playcount > 0:
                         movie.clear_playcount()
                         movie = playlist.get_next(self._is_random)
@@ -375,7 +376,7 @@ class VideoLooper:
                         time.sleep(self._wait_time)
                     self._firstStart = False
 
-                    #generating infotext
+                    # generating infotext
                     if self._player.can_loop_count():
                         infotext = '{0} time{1} (player counts loops)'.format(movie.repeats, "s" if movie.repeats>1 else "")
                     else:
@@ -385,6 +386,7 @@ class VideoLooper:
 
                     # Start playing the first available movie.
                     self._print('Playing movie: {0} {1}'.format(movie, infotext))
+
                     # todo: maybe clear screen to black so that background (image/color) is not visible for videos with a resolution that is < screen resolution
                     self._player.play(movie, loop=-1 if playlist.length()==1 else None, vol = self._sound_vol)
 
