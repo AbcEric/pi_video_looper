@@ -6,82 +6,86 @@
 # POST inquary to video_serv:
 
 import requests, json
-server_list = ["127,0,0,1", ]
+
+# 终端列表：通过连接相同Wifi热点访问（不同的AP也可以，可能速度有点影响）
+# terminal_list = [["172.16.0.143", 5000]]
+terminal_list = [["192.168.31.158", 5000]]
+user_id = "Raspi-1"
+
+def gen_url(server, opt):
+    return "http://%s:%d/%s" % (server[0], server[1], opt)
+
 
 if __name__ == "__main__":
-    # 用于json传递
+    # 用于json传递：token获得后更新
     headers = {
         'Content-Type': 'application/json;charset=UTF-8',
-        "user": "Raspi-1",
-        'token': '',
-    }
-    # 用于文件上传
-    headers_file = {
-         # 'Content-Type': 'multipart/form-data',  # boundary自动计算！
-        "user": "Raspi-1",
+        "user": user_id,
         'token': '',
     }
 
-    url = 'http://127.0.0.1:5000/get_token'
+    try:
+        # 取token：
+        r = requests.post(url=gen_url(terminal_list[0], "get_token"), headers=headers, timeout=5)
+    except Exception as e:
+        print("访问失败：", str(e))
+        exit(0)
 
-    # r = requests.post(url=url, json=data, headers=headers, timeout=5)
-    r = requests.post(url=url, headers=headers, timeout=5)
-                      # , verify=False, allow_redirects=False).json()
-
-    # r = requests.post(url="http://127.0.0.1:5000/get_token", data=json.dumps({'user': 'Raspi-1', 'expire': 60}),)
-                  # headers={'Content-Type': 'application/json'})
     token = r.text
 
     # 更新Token
     headers["token"] = token
-    headers_file["token"] = token
-    print("generate_token [", token, "]")
+    print("get_token：", token)
 
-    url = "http://127.0.0.1:5000/get_filelist"
-    r = requests.post(url=url, headers=headers, timeout=5)
-    print("get_filelist:", r.text)
+    # 等效的调用：
+    # requests.post(url="http://127.0.0.1:5000/get_filelist",
+    #               json={"filename": "xxx.mp4"},
+    #               headers={"Content-Type": 'application/json;charset=UTF-8', "user": "Raspi-1", "token": "xxxxx"}
+    #               )
 
-    url = "http://127.0.0.1:5000/delete_file"
+    r = requests.post(url=gen_url(terminal_list[0], "get_filelist"), headers=headers, timeout=5)
+    print("get_filelist: ", r.text)
+
+    # 删除文件：可以删除多个，输入参数为文件名列表
     filename = eval(r.text)
     data = {
-        "filename": [filename[0]+"test"]
+        "filename": [filename[0]+"not delete"]
     }
-    r = requests.post(url=url, json=data, headers=headers, timeout=5)
-
-    # r = requests.post(url="http://127.0.0.1:5000/delete_file", data=json.dumps({'filename': filename[0]}),
-    #                   headers={'Content-Type': 'application/json'})
+    r = requests.post(url=gen_url(terminal_list[0], "delete_file"), json=data, headers=headers, timeout=5)
     print("delete_file:", r.text)
 
-    url = "http://127.0.0.1:5000/get_filelist"
-    r = requests.post(url=url, headers=headers, timeout=5)
+    # 取得已上传的文件清单：
+    r = requests.post(url=gen_url(terminal_list[0], "get_filelist"), headers=headers, timeout=5)
     print("get_filelist:", r.text)
 
-    url = "http://127.0.0.1:5000/upload_file"
-    # 上传文件：files固定，multipart/form-data; boundary=d22e04ed8f9ce980a7182cbed70cc1ac。boundary如何计算出来的？
-    r = requests.post(url=url, headers=headers_file, files={'file': open('circle.mp4', 'rb')})
+    # 文件上传：files指定上传的文件，采用multipart/form-data，不设置Content-Type，自动计算boundary
+    r = requests.post(url=gen_url(terminal_list[0], "upload_file"), headers={"user": user_id, "token": token}, files={'file': open('circle.mp4', 'rb')})
     print("upload_file:", r.text)
 
-    # 传入JSON文本：也支持xml文本上传
-    url = "http://127.0.0.1:5000/set_playlist"
-    data = {
-           'terminal_info': {
-               'name': 'Raspi-1',
-               'resolution': '1920x1080',
-               'random': 'true',
-               'direction': 'horizon',
-               'position': 'C zone',
-               'working-time': '8:00-22:00',
-               'description': ''
-            },
-            'play_list': {
-               '9:00': 'video1.mp4',
-               '14:00': 'video2.mp4'
-            }
-    }
-    r = requests.post(url=url, headers=headers, json=data, timeout=5)
+    # 取终端信息和播放列表：
+    r = requests.post(url=gen_url(terminal_list[0], "get_playlist"), headers=headers, timeout=5)
+    print("get_playlist:", r.text)
+
+    # 修改设置后重新设置：
+    data = eval(r.text)
+    data['is_random'] = 'true'
+    r = requests.post(url=gen_url(terminal_list[0], "set_playlist"), headers=headers, json=data, timeout=5)
     print("set_playlist:", r.text)
 
-    url = "http://127.0.0.1:5000/get_playlist"
-    r = requests.post(url=url, headers=headers, timeout=5)
-    print("get_playlist:", r.text)
+    r = requests.post(url=gen_url(terminal_list[0], "get_playlist"), headers=headers, timeout=5)
+    print("get_playlist after edit:", r.text)
+
+    r = requests.post(url=gen_url(terminal_list[0], "get_running_info"), headers=headers, timeout=5)
+    print("get_runninginfo:", r.text)
+
+    # 下载截屏文件：
+    info = eval(r.text)
+    data = {
+        "filename": info["r_screenshot"]
+    }
+    r = requests.post(url=gen_url(terminal_list[0], "download_file"), json=data, headers=headers, timeout=5)
+    with open(data["filename"], "wb") as code:
+        code.write(r.content)
+    print("download_file:", data["filename"])
+
 
